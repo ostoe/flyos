@@ -1,0 +1,10 @@
+# in .cargo/config
+[build]
+target = "x86_64-flyos.json"
+
+[target.'cfg(target_os = "none")']
+runner = "bootimage runner"
+
+[unstable]
+# build-std = ["core", "compiler_builtins", "alloc"]  这一句是不使用xbuild的时候使用的
+
