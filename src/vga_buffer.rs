@@ -6,8 +6,36 @@
 | 8-11   | Foreground color |
 | 12-14  | Background color |
 | 15     | Blink            |
+
+
+raw write:
+```rust
+    // let vga_buffer = 0xb8000 as *mut u8; // 注意此处 *mut，裸指针，指向内存0xb8000这片区域！
+    // for (i, &byte) in HELLO.iter().enumerate() {
+    //     unsafe {
+    //         *vga_buffer.offset(i as isize * 2) = byte;  // 0-7 bit
+    //         *vga_buffer.offset(i as isize * 2 + 1) = 0xb; // 淡青色！因为是一个内存块的不同位； 8-15 bit
+    //     }
+    // }
+```
  */
 
+use spin::Mutex;
+use volatile::Volatile;
+use core::fmt;
+use lazy_static::lazy_static;
+
+
+
+lazy_static! {
+     pub static ref WRITER: Mutex<Writer> = Mutex::new( Writer {
+        column_position: 0,
+        color_code: ColorCode::new(Color::LightRed, Color::DarkGray),
+        buffer: unsafe {
+            &mut *(0xb8000 as *mut Buffer) // 直接使用指针；???  VGA缓冲区内存 写法不明白
+        },
+    });
+}
 // #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -51,16 +79,18 @@ struct ScreenChar {
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
+
+
 //对Buffer类型，我们再次使用repr(transparent)，来确保类型和它的单个成员有相同的内存布局。
 #[repr(transparent)]
 struct Buffer {
-    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT]
+    chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT]
 }
 
 
 pub struct Writer {
     column_position: usize,
-    raw_position: usize,
+    // raw_position: usize,
     color_code: ColorCode,
     buffer: &'static mut Buffer,
 }
@@ -73,21 +103,28 @@ impl  Writer {
             if self.column_position >= BUFFER_WIDTH {
                 self.new_line();
             }
-            let row =  self.raw_position;
-            // let row = BUFFER_HEIGHT - 1;
+            // let row =  self.raw_position;
+            let row = BUFFER_HEIGHT - 1;
             let col = self.column_position;
             let color_code = self.color_code;
-            self.buffer.chars[row][col] = ScreenChar { //这里等价于直接写内存字段；
+            self.buffer.chars[row][col].write( ScreenChar { //这里等价于直接写内存字段；
                 ascii_character: byte,
                 color_code,
-            };
+            });
             self.column_position += 1;
            } 
         }
     }
 
     fn new_line(&mut self) {
-        self.raw_position += 1;
+
+        for row in 1..BUFFER_HEIGHT {
+            for col in 0..BUFFER_WIDTH {
+                let characator = self.buffer.chars[row][col].read();
+                self.buffer.chars[row - 1][col].write(characator);
+            }
+        }
+        self.clear_row(BUFFER_HEIGHT-1);
         self.column_position = 0;
     }
     fn write_string(&mut self, s: &str) {
@@ -99,23 +136,78 @@ impl  Writer {
             }
         }
     }
-
+    fn clear_row(&mut self, row: usize)  {
+        let blank  = ScreenChar{
+            ascii_character: b' ',
+             color_code: self.color_code,
+        };
+        for col in 0..BUFFER_WIDTH {
+            self.buffer.chars[row][col].write(blank);
+        }
+    }
     
 }
 
+impl fmt::Write for Writer {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        self.write_string(s);
+        Ok(())
+    }
+
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    use core::fmt::Write;
+    // write_fmt是fmt::Write默认实现，中间调用了write方法，而该方法就是for x in xxx { self.write_str(x) }
+    // 而此处的write_str就是我们实现的
+    WRITER.lock().write_fmt(args).unwrap(); 
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n")); // 有点 match switch的意思
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! printt {
+    () => ($crate::print!("\n"));
+    // ($($args:tt)*) =>  ($crate::print!("{}\n", format_args!($({})* ,$($arg)*)));
+
+    // ($($args:tt)*) =>  ($crate::print!("{}\n", stringify!($($arg , )*)));
+    ($($args:expr),*) => {
+            $(
+                $crate::print!("{} ", $arg); 
+            )*
+            $crate::print!("{}\n");
+
+        };
+
+}
+
+
+
+
 pub fn print_something() {
-    let mut writer = Writer {
-        raw_position: 3,
+    use core::fmt::Write;
+    let mut writer : Mutex<Writer>= Mutex::new(Writer {
         column_position: 0,
         color_code: ColorCode::new(Color::LightRed, Color::DarkGray),
         buffer: unsafe {
             &mut *(0xb8000 as *mut Buffer) // 直接使用指针；???  VGA缓冲区内存 写法不明白
         },
-    };
-
-    writer.write_byte(b'H');
-    writer.write_string("ello ");
-    writer.write_string("Wörld!");
-    writer.write_string("-----\nfsfsgsfsa")
-
+    });
+    // let writer = WRITER;
+    writer.lock().write_string("-----\nfsfsgsfsa");
+    write!(&mut writer.lock(), "hefdsafdsa------");
+    // let a = 1.0f32/3.0 as f32;
+    let a =  stringify!(1.0 + 1);
+    write!(&mut writer.lock(), "The numbers are {} and {}", 42, a);// .unwrap();
+    writer.lock().write_string("-----\nfsfsgsfsa");
 }
