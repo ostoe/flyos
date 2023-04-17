@@ -32,7 +32,11 @@ lazy_static! {
         column_position: 0,
         color_code: ColorCode::new(Color::LightRed, Color::DarkGray),
         buffer: unsafe {
-            &mut *(0xb8000 as *mut Buffer) // 直接使用指针；???  VGA缓冲区内存 写法不明白
+            /*CPU和外围设备通信方式，此处使用使用内存映射的方式，
+            通过内存地址0xb8000访问了[VGA文本缓冲区]。
+            该地址并没有映射到RAM，而是映射到了VGA设备的一部分内存上。
+            */
+            &mut *(0xb8000 as *mut Buffer) //
         },
     });
 }
@@ -192,8 +196,7 @@ macro_rules! printt {
 }
 
 
-
-
+#[allow(unused)]
 pub fn print_something() {
     use core::fmt::Write;
     let mut writer : Mutex<Writer>= Mutex::new(Writer {
@@ -205,9 +208,50 @@ pub fn print_something() {
     });
     // let writer = WRITER;
     writer.lock().write_string("-----\nfsfsgsfsa");
-    write!(&mut writer.lock(), "hefdsafdsa------");
+    write!(&mut writer.lock(), "hefdsafdsa------").unwrap();
     // let a = 1.0f32/3.0 as f32;
     let a =  stringify!(1.0 + 1);
-    write!(&mut writer.lock(), "The numbers are {} and {}", 42, a);// .unwrap();
+    write!(&mut writer.lock(), "The numbers are {} and {}", 42, a).unwrap();// .unwrap();
     writer.lock().write_string("-----\nfsfsgsfsa");
+}
+
+
+/* 
+====================
+test
+====================
+ */
+
+
+ #[cfg(test)]
+ use crate::{serial_print, serial_println};
+ 
+ #[test_case]
+ fn test_println_simple() {
+     serial_print!("test_println... ");
+     println!("test_println_simple output");
+     serial_println!("[ok]");
+ }
+
+ #[test_case]
+fn test_println_many() {
+    serial_print!("test_println_many... ");
+    for _ in 0..200 {
+        println!("test_println_many output");
+    }
+    serial_println!("[ok]");
+}
+
+
+#[test_case]
+fn test_println_output() {
+    serial_print!("test_println_output... ");
+    let s = "Some test string that fits on a single line";
+    println!("{}", s);
+    for (i, c) in s.chars().enumerate() {
+        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
+        assert_eq!(char::from(screen_char.ascii_character), c);
+    }
+
+    serial_println!("[ok]");
 }
