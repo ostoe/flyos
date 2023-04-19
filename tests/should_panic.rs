@@ -30,7 +30,7 @@ fn panic(_info: &PanicInfo) ->! {
 // #[test_case]
 fn should_fail() {
     serial_println!("should_fail... ");
-    assert_eq!(0, 1);
+    assert_eq!(1, 1);
 }
 
 

@@ -1,5 +1,8 @@
 #![no_std]
 
+#![feature(abi_x86_interrupt)]
+
+#![feature(const_mut_refs)]
 #![cfg_attr(test, no_main)]
 #![feature(custom_test_frameworks)]
 #![test_runner(crate::test_runner)]
@@ -10,6 +13,8 @@ use core::panic::PanicInfo;
 pub mod serial;
 pub mod vga_buffer;
 // pub mod should_panic;
+pub mod interrupts;
+pub mod gdt;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -49,6 +54,8 @@ pub fn test_runner(tests: &[&dyn Fn()]) {
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     test_main();
+    init();
+    
     loop {}
 }
 
@@ -58,6 +65,21 @@ fn panic(info: &PanicInfo) -> ! {
     test_panic_handler(info)
 }
 
+pub fn hlt_loop() -> !{
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
+
+
+pub fn init() {
+    gdt::init();
+    interrupts::init_idt();
+    println!("---78");
+    x86_64::instructions::interrupts::enable();
+    println!("---79");
+
+}
 
 
 
@@ -66,4 +88,5 @@ fn panic(info: &PanicInfo) -> ! {
     test
 ---------------------------
  */
+
 
