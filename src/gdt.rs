@@ -15,7 +15,8 @@ lazy_static::lazy_static! {
             const STACK_SIZE: usize = 4096 * 5;
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
             let stack_start = VirtAddr::from_ptr(unsafe{ &STACK });
-            let stack_end = stack_start + STACK_SIZE;
+            let stack_end = stack_start + STACK_SIZE; // 然后向第0个条目写入了双重异常栈的顶部地址
+            // （因为 x86 机器的栈地址向下扩展，也就是从高地址到低地址）。
             stack_end
         };
         tss
@@ -40,8 +41,8 @@ pub fn init() {
     use x86_64::instructions::{segmentation::set_cs, tables::load_tss};
     GDT.0.load();
     unsafe {
-        set_cs(GDT.1.code_selector);
-        load_tss(GDT.1.tss_selector);
+        set_cs(GDT.1.code_selector); // 重装代码段寄存器
+        load_tss(GDT.1.tss_selector); // 加载TSS
     }
 }
 

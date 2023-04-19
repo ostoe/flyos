@@ -30,7 +30,7 @@ use lazy_static::lazy_static;
 lazy_static! {
      pub static ref WRITER: Mutex<Writer> = Mutex::new( Writer {
         column_position: 0,
-        color_code: ColorCode::new(Color::LightRed, Color::DarkGray),
+        color_code: ColorCode::new(Color::LightGreen, Color::Black),
         buffer: unsafe {
             /*CPU和外围设备通信方式，此处使用使用内存映射的方式，
             通过内存地址0xb8000访问了[VGA文本缓冲区]。
@@ -165,7 +165,10 @@ pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
     // write_fmt是fmt::Write默认实现，中间调用了write方法，而该方法就是for x in xxx { self.write_str(x) }
     // 而此处的write_str就是我们实现的
-    WRITER.lock().write_fmt(args).unwrap(); 
+    x86_64::instructions::interrupts::without_interrupts(||  {
+        WRITER.lock().write_fmt(args).unwrap()
+    });
+   
 }
 
 #[macro_export]
@@ -201,7 +204,7 @@ pub fn print_something() {
     use core::fmt::Write;
     let mut writer : Mutex<Writer>= Mutex::new(Writer {
         column_position: 0,
-        color_code: ColorCode::new(Color::LightRed, Color::DarkGray),
+        color_code: ColorCode::new(Color::LightRed, Color::Black),
         buffer: unsafe {
             &mut *(0xb8000 as *mut Buffer) // 直接使用指针；???  VGA缓冲区内存 写法不明白
         },
@@ -223,7 +226,8 @@ test
  */
 
 
- #[cfg(test)]
+ use crate::interrupts;
+#[cfg(test)]
  use crate::{serial_print, serial_println};
  
  #[test_case]
@@ -245,13 +249,18 @@ fn test_println_many() {
 
 #[test_case]
 fn test_println_output() {
+    use core::fmt::Write;
     serial_print!("test_println_output... ");
     let s = "Some test string that fits on a single line";
-    println!("{}", s);
-    for (i, c) in s.chars().enumerate() {
-        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(screen_char.ascii_character), c);
-    }
+
+    x86_64::instructions::interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        writeln!(writer, "\n{}", s).expect("writeln failed.");
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_character), c);
+        }
+    });
 
     serial_println!("[ok]");
 }

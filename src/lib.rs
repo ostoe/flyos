@@ -37,7 +37,7 @@ pub fn test_panic_handler(info: &PanicInfo) ->! {
     serial_println!("[failed]\n");
     serial_println!("Error: {}\n", info);
     exit_qemu(QemuExitCode::Failed);
-    loop {}
+    hlt_loop();
 }
 
 pub fn test_runner(tests: &[&dyn Fn()]) {
@@ -56,7 +56,7 @@ pub extern "C" fn _start() -> ! {
     test_main();
     init();
     
-    loop {}
+    hlt_loop();
 }
 
 #[cfg(test)]
@@ -65,6 +65,7 @@ fn panic(info: &PanicInfo) -> ! {
     test_panic_handler(info)
 }
 
+//让 CPU 停下来，直到下一个中断到达。这允许 CPU 进入休眠状态
 pub fn hlt_loop() -> !{
     loop {
         x86_64::instructions::hlt();
@@ -75,9 +76,8 @@ pub fn hlt_loop() -> !{
 pub fn init() {
     gdt::init();
     interrupts::init_idt();
-    println!("---78");
-    x86_64::instructions::interrupts::enable();
-    println!("---79");
+    unsafe { interrupts::PICS.lock().initialize() };
+    x86_64::instructions::interrupts::enable(); // 打开了CPU的硬件定时器；能够接受中断；
 
 }
 
