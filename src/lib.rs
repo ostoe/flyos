@@ -15,6 +15,7 @@ pub mod vga_buffer;
 // pub mod should_panic;
 pub mod interrupts;
 pub mod gdt;
+pub mod memory;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -52,12 +53,21 @@ pub fn test_runner(tests: &[&dyn Fn()]) {
 /// Entry point for `cargo xtest`
 #[cfg(test)]
 #[no_mangle]
-pub extern "C" fn _start() -> ! {
+
+#[cfg(test)]
+use bootloader::{entry_point, BootInfo};
+
+#[cfg(test)]
+entry_point!(test_kernal_main);
+
+#[cfg(test)]
+pub fn test_kernal_main(_boot_info: &'static BootInfo) -> ! {
     test_main();
     init();
-    
     hlt_loop();
 }
+
+
 
 #[cfg(test)]
 #[panic_handler]
@@ -80,6 +90,8 @@ pub fn init() {
     x86_64::instructions::interrupts::enable(); // 打开了CPU的硬件定时器；能够接受中断；
 
 }
+
+
 
 
 

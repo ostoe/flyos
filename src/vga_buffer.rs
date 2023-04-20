@@ -10,7 +10,7 @@
 
 raw write:
 ```rust
-    // let vga_buffer = 0xb8000 as *mut u8; // 注意此处 *mut，裸指针，指向内存0xb8000这片区域！
+    // let vga_buffer = 0xb8000 as *mut u8; // 注意此处 *mut，裸指针，指向内存0xb8000这片区域！ 恒等映射，物理地址和虚拟地址同地址！
     // for (i, &byte) in HELLO.iter().enumerate() {
     //     unsafe {
     //         *vga_buffer.offset(i as isize * 2) = byte;  // 0-7 bit
