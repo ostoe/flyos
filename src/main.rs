@@ -8,6 +8,7 @@
 use core::panic::PanicInfo;
 use bootloader::entry_point;
 use bootloader::BootInfo;
+use flyos::memory::BootInfoFrameAllocator;
 // use flyos::memory::translate_addr;
 use flyos::{test_panic_handler,print, println, serial_println };
 use x86_64::structures::paging::FrameAllocator;
@@ -29,19 +30,24 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
     // use blog_os::memory::{self, BootInfoFrameAllocator};
     use x86_64::VirtAddr;
 
-    // println!("Hello World{}", "!");
+    println!("Hello World{}", "!");
     flyos::init();
-    serial_println!("had init bootInfo: {:#?}", _boot_info);
+    // serial_println!("had init bootInfo: {:#?}", _boot_info);
     let phys_mem_offset = VirtAddr::new(_boot_info.physical_memory_offset);
     let mut mapper = unsafe { flyos::memory::init(phys_mem_offset) };
-    let mut frame_allocator = flyos::memory::EmptyFrameAllocator;
+    
+    let mut frame_allocator = unsafe {
+        BootInfoFrameAllocator::init(&_boot_info.memory_map)
+    };
 
+    // 
+    // let mut frame_allocator = flyos::memory::EmptyFrameAllocator;
     //new page
     // let page = Page::containing_address(VirtAddr::new(0));
-    let page = Page::containing_address(VirtAddr::new(0xdefa3808));
+    let page = Page::containing_address(VirtAddr::new(0));
     flyos::memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
     let page_ptr:  *mut u64 = page.start_address().as_mut_ptr();
-    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
+    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e)};
     // let l4_table = unsafe { active_level_4_page_table(phys_mem_offset) };
     let addresses = [
         // the identity-mapped vga buffer page

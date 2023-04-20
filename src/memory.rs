@@ -5,6 +5,50 @@ use x86_64::{
 };
 
 use x86_64::structures::paging::OffsetPageTable;
+use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
+
+
+pub struct BootInfoFrameAllocator {
+    memory_map: &'static MemoryMap,
+    next: usize,
+}
+
+// 内存映射由BIOS / UEFI固件提供。它只能在引导过程的早期被查询
+impl BootInfoFrameAllocator {
+
+    // pub unsafe fn new(memory_map: &'static MemoryMap) -> Self {
+    //     BootInfoFrameAllocator { memory_map: memory_map, next: 0 }
+    // }
+
+    pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
+        BootInfoFrameAllocator { memory_map: memory_map, next: 0 }
+    }
+    // 相当于获取所有未使用的内物理帧
+    fn usable_frames(&self) -> impl IntoIterator<Item = PhysFrame> {
+        // 获取使用的内存映射
+        let regions  = self.memory_map.iter();
+        let usable_regions = regions
+            .filter(|r| r.region_type == MemoryRegionType::Usable );
+        // 映射每一个区域到地址
+        let addr_ranges = usable_regions
+            .map(|r| r.range.start_addr()..r.range.end_addr());
+        // 展开成一个迭代器，step=4kib，
+        let frame_addresses = 
+            addr_ranges.flat_map(|r|r.step_by(4096)); // 4kib=4096
+        frame_addresses.map(|addr|PhysFrame::containing_address(PhysAddr::new(addr)))
+    }
+
+
+}
+
+unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        let frame = self.usable_frames().nth(self.next);
+        self.next += 1;
+        frame
+    }
+}
+
 
 pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
     let level_4_table = active_level_4_page_table(physical_memory_offset);
