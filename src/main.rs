@@ -4,27 +4,28 @@
 #![feature(custom_test_frameworks)]
 #![test_runner(flyos::test_runner)]
 
+extern crate alloc;
 
-use core::panic::PanicInfo;
+use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::entry_point;
 use bootloader::BootInfo;
+use core::panic::PanicInfo;
+use flyos::allocator;
 use flyos::memory::BootInfoFrameAllocator;
 // use flyos::memory::translate_addr;
-use flyos::{test_panic_handler,print, println, serial_println };
+use flyos::{print, println, serial_println, test_panic_handler};
 use x86_64::structures::paging::FrameAllocator;
 use x86_64::structures::paging::Page;
 use x86_64::structures::paging::PageTable;
 use x86_64::structures::paging::Size4KiB;
 use x86_64::structures::paging::Translate;
 
-
 entry_point!(kernel_main);
 
-
 fn kernel_main(_boot_info: &'static BootInfo) -> ! {
-// 我们使用no_mangle标记这个函数，来对它禁用名称重整（name mangling）——这确保Rust编译器输出一个名为_start的函数；否则，编译器可能最终生成名为_ZN3blog_os4_start7hb173fedf945531caE的函数，无法让链接器正确辨别。
-// #[no_mangle] 
-// pub extern "C" fn _start(bootinfo: &'static bootloader::BootInfo) -> ! {
+    // 我们使用no_mangle标记这个函数，来对它禁用名称重整（name mangling）——这确保Rust编译器输出一个名为_start的函数；否则，编译器可能最终生成名为_ZN3blog_os4_start7hb173fedf945531caE的函数，无法让链接器正确辨别。
+    // #[no_mangle]
+    // pub extern "C" fn _start(bootinfo: &'static bootloader::BootInfo) -> ! {
 
     // use blog_os::allocator;
     // use blog_os::memory::{self, BootInfoFrameAllocator};
@@ -35,23 +36,43 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
     // serial_println!("had init bootInfo: {:#?}", _boot_info);
     let phys_mem_offset = VirtAddr::new(_boot_info.physical_memory_offset);
     let mut mapper = unsafe { flyos::memory::init(phys_mem_offset) };
-    
-    let mut frame_allocator = unsafe {
-        BootInfoFrameAllocator::init(&_boot_info.memory_map)
-    };
 
-    // 
+    let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&_boot_info.memory_map) };
+
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed.");
+
+    //
     // let mut frame_allocator = flyos::memory::EmptyFrameAllocator;
     //new page
     // let page = Page::containing_address(VirtAddr::new(0));
-    let page = Page::containing_address(VirtAddr::new(0));
+    let page = Page::containing_address(VirtAddr::new(0xdeadbeaf));
     flyos::memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
-    let page_ptr:  *mut u64 = page.start_address().as_mut_ptr();
-    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e)};
+    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
+    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
     // let l4_table = unsafe { active_level_4_page_table(phys_mem_offset) };
+    /* -------------test heap */
+    let heap_value = Box::new(41);
+    println!("heap_value at {:p}", heap_value);
+    let mut vec = Vec::new();
+    for i in 0..1024 {
+        vec.push(i);
+    }
+    println!("vec as {:p}", vec.as_slice());
+    let reference_counted = Rc::new(vec![1, 2, 3]);
+    let cloned_reference = reference_counted.clone();
+    println!(
+        "reference count is  {} now",
+        Rc::strong_count(&cloned_reference)
+    );
+    core::mem::drop(reference_counted);
+    println!(
+        "reference count is  {} now",
+        Rc::strong_count(&cloned_reference)
+    );
+
     let addresses = [
         // the identity-mapped vga buffer page
-        0xb8000,  // 是虚拟地址，但是这个地址比较特殊，会做恒等映射，物理地址也是这个。
+        0xb8000, // 是虚拟地址，但是这个地址比较特殊，会做恒等映射，物理地址也是这个。
         // some code page
         0x201008,
         // some stack page
@@ -61,7 +82,9 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
     ];
     for &address in &addresses {
         let virt = VirtAddr::new(address);
-        let phys = unsafe { mapper.translate_addr(virt) /* before: translate_addr(virt, phys_mem_offset)  */};
+        let phys = unsafe {
+            mapper.translate_addr(virt) /* before: translate_addr(virt, phys_mem_offset)  */
+        };
         println!("{:?} -> {:?}", virt, phys);
     }
 
@@ -104,20 +127,22 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
      */
 
     // case 0x3
-    let level_4_table_pointer = 0xffff_ffff_ffff_f000 as *const PageTable;
-    let level_4_table = unsafe {&*level_4_table_pointer};
-    for i in 0..10 {
-        // 如果有页表条目，是可以看到 相关标识位的。
-        // let entry = ;
-        println!("Entry {}: {:?}", i, level_4_table[i]);
-    }
-
-
-    
+    // let level_4_table_pointer = 0xffff_ffff_ffff_f000 as *const PageTable;
+    // let level_4_table = unsafe { &*level_4_table_pointer };
+    // for i in 0..10 {
+    //     // 如果有页表条目，是可以看到 相关标识位的。
+    //     // let entry = ;
+    //     println!("Entry {}: {:?}", i, level_4_table[i]);
+    // }
+        // TODO ????
     let ptr = 0x2035f8 as *mut u32;
-    unsafe {let x = *ptr;}
+    unsafe {
+        // *ptr = 42;
+        let x = *ptr;
+        println!("x:::{:?}",x);
+    }
     // unsafe {*ptr = 42;}
-
+    // println!("now");
     // 触发了缺页异常，如果没处理，就会触发双重异常；
     unsafe {
         *(0xdeadbee8 as *mut u64) = 42;
@@ -135,16 +160,14 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
     println!("---end---");
-    panic!("info"); // 这里panic以后也会进入hlt_loop()
+    // panic!("info");
+    // 这里panic以后也会进入hlt_loop()
     // let mut executor = Executor::new();
     // executor.spawn(Task::new(example_task()));
     // executor.spawn(Task::new(keyboard::print_keypresses()));
     // executor.run();
-    flyos::hlt_loop();         
-
+    flyos::hlt_loop();
 }
-
-
 
 #[cfg(not(test))]
 #[panic_handler]
@@ -153,15 +176,12 @@ fn panic(info: &PanicInfo) -> ! {
     flyos::hlt_loop()
 }
 
-
-
 #[cfg(test)]
 #[panic_handler]
-fn panic(info: &PanicInfo) ->! {
+fn panic(info: &PanicInfo) -> ! {
     serial_println!("i'm panic!");
     flyos::test_panic_handler(info);
 }
-
 
 #[test_case]
 fn trivial_assertion() {
@@ -172,5 +192,5 @@ fn trivial_assertion() {
 }
 
 /*isa-debug-exit设备使用的就是端口映射I/O。其中， iobase
- 参数指定了设备对应的端口地址（在x86中，0xf4是一个通常未被使用的端口），
- 而iosize则指定了端口的大小（0x04代表4字节）。 */
+参数指定了设备对应的端口地址（在x86中，0xf4是一个通常未被使用的端口），
+而iosize则指定了端口的大小（0x04代表4字节）。 */

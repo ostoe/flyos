@@ -8,7 +8,12 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use core::panic::PanicInfo;
+#![feature(alloc_error_handler)]
+
+extern crate alloc;
+
+use core::{panic::PanicInfo, alloc::Layout};
+use linked_list_allocator::LockedHeap;
 
 pub mod serial;
 pub mod vga_buffer;
@@ -16,12 +21,23 @@ pub mod vga_buffer;
 pub mod interrupts;
 pub mod gdt;
 pub mod memory;
+pub mod allocator;
+
+#[global_allocator]
+// static ALLOCATOR: allocator::Dummy = allocator::Dummy;
+static ALLOCATOR: LockedHeap = LockedHeap::empty();
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum QemuExitCode {
     Success = 0x10,
     Failed = 0x11,
+}
+
+#[alloc_error_handler]
+fn alloc_error_handler(layout: Layout) -> ! {
+    panic!("allocation error: {:?}", layout)
 }
 
 pub fn exit_qemu(exit_code: QemuExitCode) {
@@ -56,6 +72,7 @@ pub fn test_runner(tests: &[&dyn Fn()]) {
 
 #[cfg(test)]
 use bootloader::{entry_point, BootInfo};
+use pc_keyboard::layouts;
 
 #[cfg(test)]
 entry_point!(test_kernal_main);

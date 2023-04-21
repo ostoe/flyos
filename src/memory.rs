@@ -24,7 +24,7 @@ impl BootInfoFrameAllocator {
         BootInfoFrameAllocator { memory_map: memory_map, next: 0 }
     }
     // 相当于获取所有未使用的内物理帧
-    fn usable_frames(&self) -> impl IntoIterator<Item = PhysFrame> {
+    fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> {
         // 获取使用的内存映射
         let regions  = self.memory_map.iter();
         let usable_regions = regions
@@ -41,6 +41,7 @@ impl BootInfoFrameAllocator {
 
 }
 
+// 添加页表，而不是添加数据页
 unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
         let frame = self.usable_frames().nth(self.next);
