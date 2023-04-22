@@ -10,10 +10,14 @@ use x86_64:: {
     VirtAddr,
 };
 
+pub mod bump;
+pub mod linked_list;
+
+
 pub struct Dummy;
 
 pub const HEAP_START: usize = 0x_4444_4444_0000;
-pub const HEAP_SIZE: usize  = 100 * 1024; // 100 kib
+pub const HEAP_SIZE: usize  = 100 * 1024; // 100kib
 
 unsafe impl GlobalAlloc for Dummy {
     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
@@ -26,6 +30,8 @@ unsafe impl GlobalAlloc for Dummy {
 }
 
 
+
+/// 初始化heap大小100kib，由HEAP_SIZE定义
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
@@ -53,4 +59,30 @@ pub fn init_heap(
 
     Ok(())
 
+}
+
+
+// spin 
+
+pub struct Locked<A> {
+    inner: spin::Mutex<A>
+}
+
+impl<A> Locked<A> {
+    pub const fn new(inner: A) -> Self {
+        Locked { inner: spin::Mutex::new(inner), }
+    }
+
+    pub fn lock(&self, ) -> spin::MutexGuard<A> {
+        self.inner.lock()
+    }
+}
+
+pub fn align_up(addr: usize, align: usize) -> usize {
+    let remainder = addr % align; 
+    if remainder == 0 {
+        addr 
+    } else {
+        addr - remainder + align
+    }
 }

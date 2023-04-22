@@ -8,7 +8,7 @@ extern crate alloc;
 
 use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::{entry_point, BootInfo};
-use flyos::serial_println;
+use flyos::{serial_println, allocator::HEAP_SIZE};
 use core::panic::PanicInfo;
 
 entry_point!(main);
@@ -62,10 +62,22 @@ fn large_vec() {
 
 #[test_case]
 fn many_boxes() {
-    serial_println!("many boxes");
+    serial_println!("many boxes...");
     for i in 0..10_000 {
         let x = Box::new(i);
         assert_eq!(*x, i);
     }
     serial_println!("[ok]");
+}
+
+#[test_case]
+fn many_boxes_long_lived() {
+    serial_println!("many boxed long lived...");
+    let long_lived = Box::new(1);
+    for i in 0..HEAP_SIZE {
+        let x = Box::new(i);
+        assert_eq!(*x, i);
+    }
+    assert_eq!(*long_lived, 1); 
+    serial_println!("[ok]")
 }
