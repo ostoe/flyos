@@ -11,12 +11,16 @@
 #![feature(alloc_error_handler)]
 
 // 在const函数中使用可变引用不稳定，添加才能编译
-#![feature(const_mut_refs)]
+// #![feature(const_mut_refs)]
+
+#![feature(alloc_layout_extra)]
+
+#![feature(const_in_array_repeat_expressions)]
 
 extern crate alloc;
 
 use core::{panic::PanicInfo, alloc::Layout};
-use allocator::bump::BumpAllocator;
+use allocator::{bump::BumpAllocator, Locked, linked_list::LinkedListAllocator};
 use linked_list_allocator::LockedHeap;
 
 pub mod serial;
@@ -30,7 +34,8 @@ pub mod allocator;
 #[global_allocator]
 // static ALLOCATOR: allocator::Dummy = allocator::Dummy;
 // static ALLOCATOR: LockedHeap = LockedHeap::empty();
-static ALLOCATOR: allocator::Locked<BumpAllocator>= allocator::Locked::new(BumpAllocator::new());
+// static ALLOCATOR: allocator::Locked<BumpAllocator>= allocator::Locked::new(BumpAllocator::new());
+static ALLOCATOR: Locked<LinkedListAllocator> =  Locked::new(LinkedListAllocator::new());
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

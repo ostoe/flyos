@@ -8,22 +8,24 @@ use x86_64::structures::paging::OffsetPageTable;
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 
 
+
+/// 从bootloader启动后的内存信息生成映射和指针
 pub struct BootInfoFrameAllocator {
     memory_map: &'static MemoryMap,
     next: usize,
 }
 
-// 内存映射由BIOS / UEFI固件提供。它只能在引导过程的早期被查询
+/// 内存映射由BIOS / UEFI固件提供。它只能在引导过程的早期被查询
 impl BootInfoFrameAllocator {
 
     // pub unsafe fn new(memory_map: &'static MemoryMap) -> Self {
     //     BootInfoFrameAllocator { memory_map: memory_map, next: 0 }
     // }
-
+/// 仅new实例
     pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
         BootInfoFrameAllocator { memory_map: memory_map, next: 0 }
     }
-    // 相当于获取所有未使用的内物理帧
+    /// 相当于获取所有未使用的内物理帧
     fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> {
         // 获取使用的内存映射
         let regions  = self.memory_map.iter();
@@ -41,7 +43,7 @@ impl BootInfoFrameAllocator {
 
 }
 
-// 添加页表，而不是添加数据页
+/// 添加页表，而不是添加数据页
 unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
         let frame = self.usable_frames().nth(self.next);
@@ -50,7 +52,7 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     }
 }
 
-
+/// 从bootinfo中的物理映射信息生成mapper
 pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
     let level_4_table = active_level_4_page_table(physical_memory_offset);
     OffsetPageTable::new(level_4_table, physical_memory_offset) // 类型假定完整的物理内存以某个偏移量映射到虚拟地址空间
@@ -66,14 +68,14 @@ unsafe fn active_level_4_page_table(physical_memory_offset: VirtAddr) -> &'stati
     let (level_4_page_frame, _) = Cr3::read();
     // 找到 l4 table物理起始地址
     let phys = level_4_page_frame.start_address(); // 条目里存的物理地址
-                                                   // +偏移 --> 转换成虚拟地址？？？这里其实就是变量的地址，这里为啥是虚拟地址？
+    // +偏移 --> 转换成虚拟地址？？？这里其实就是变量的地址，这里为啥是虚拟地址？
     let virt = physical_memory_offset + phys.as_u64();
     // l4页表指针 返回l4 PageTable 指针
     let page_table_ptr: *mut PageTable = virt.as_mut_ptr();
     &mut *page_table_ptr // unsafe
 }
 
-/// 为在PageTable中添加一条映射
+/// 为在PageTable中添加一条映射，目标数据页是VGA缓冲区[测试需要]
 pub fn create_example_mapping(
     page: Page,
     mapper: &mut OffsetPageTable,

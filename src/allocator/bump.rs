@@ -2,12 +2,15 @@
 
 use alloc::alloc::{GlobalAlloc, Layout};
 
+
+/// Bump heap分配器
 pub struct BumpAllocator {
     heap_start: usize,
     heap_end: usize,
     next: usize,
     allocations: usize,
 }
+
 
 
 

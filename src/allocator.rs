@@ -10,8 +10,16 @@ use x86_64:: {
     VirtAddr,
 };
 
-pub mod bump;
-pub mod linked_list;
+
+/// 两种不同的分配器
+pub mod bump;  // 只是简单的增加，效率高，不能重复利用
+pub mod linked_list; // 有回收，能重复利用，但是也会有碎片，效率低
+// 还有一种是固定大小的块，比如16 32 64 128大小的块分别使用不同的分配器：
+pub mod fixed_size_block;
+
+// 可以增加合并策略，但是实现起来效率低，
+// 好像go的hashmap也是这种玩的，小的和大的实现的算法不同。
+
 
 
 pub struct Dummy;
@@ -32,6 +40,7 @@ unsafe impl GlobalAlloc for Dummy {
 
 
 /// 初始化heap大小100kib，由HEAP_SIZE定义
+/// 从虚拟地址分出来一块heap，多个Page，映射到物理地址
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
@@ -78,6 +87,8 @@ impl<A> Locked<A> {
     }
 }
 
+
+///  4kib对齐校验
 pub fn align_up(addr: usize, align: usize) -> usize {
     let remainder = addr % align; 
     if remainder == 0 {
