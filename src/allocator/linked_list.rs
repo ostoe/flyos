@@ -14,7 +14,8 @@ struct ListNode {
     next: Option<&'static mut ListNode>
 }
 
-
+/// [ |->size, next| start_addr      end_addr <-| |->size, next| start_addr    end_addr <-| ...       ]
+/// 一个ListNode从逻辑上可以认为包含自己，和储存数据的区域
 impl ListNode {
     const fn  new(size: usize) -> Self {
         ListNode { size, next: None}
@@ -50,7 +51,7 @@ impl LinkedListAllocator {
     pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
         self.add_free_region(heap_start, heap_size);
     }
-    // 只是做内存块的链表操作
+    /// 只是做内存区域的的链表操作，添加第一个node
     unsafe fn add_free_region(&mut self, addr: usize, size: usize) {
         assert!(align_up(addr, mem::align_of::<ListNode>()) == addr);
         assert!(size >= mem::size_of::<ListNode>());
@@ -59,7 +60,7 @@ impl LinkedListAllocator {
         node.next = self.head.next.take();
         let node_ptr = addr as *mut ListNode; // 地址作为指针，是* 的类型
         node_ptr.write(node);
-        //  *node_ptr 解引用，表示取的变量
+        //  *node_ptr 解引用，表示取的变量，将heap重新指到新添加的node
         self.head.next = Some(&mut *node_ptr);
     }
     
@@ -67,6 +68,7 @@ impl LinkedListAllocator {
     fn find_region(&mut self, size: usize, align: usize) -> Option<(&'static mut ListNode, usize)> {
         let mut current = &mut self.head;
         while let Some(ref mut region) = current.next {
+            // 一个Node像当于一个region
             if let Ok(alloc_start) = Self::alloc_from_region(&region, size, align) {
                 // 相当于吧中间的节点扣出来！
                 let next = region.next.take();
@@ -83,6 +85,8 @@ impl LinkedListAllocator {
         return None
     }
 
+    // 
+    /// 从某一个node中看一下这片区域大小，是否能存储目标大小的数据和Node本身的size和next，
     fn alloc_from_region(region: &ListNode, size: usize, align: usize) -> Result<usize, ()> {
         // 4kib对其校验
         let alloc_start = align_up(region.start_addr(), align);
@@ -92,9 +96,12 @@ impl LinkedListAllocator {
             return Err(());
         }
 
-        // rest of resion too small to hold a ListNode;
+        // rest of region too small to hold a ListNode;
         let excess_size = region.end_addr() - alloc_end;
         // 这里的size_of和传入参数param区别？
+        // 之所以要求大于ListNode，是后面还打算把剩下的地址放进ListNode
+        // 如果剩下的区域放不下ListNode，就意味着该region不能再放进ListNode变成垃圾块了！
+        // 
         if excess_size > 0 && excess_size < mem::size_of::<ListNode>() {
             return Err(());
         }
@@ -118,11 +125,12 @@ unsafe impl GlobalAlloc for Locked<LinkedListAllocator> {
     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         let (size, align) = LinkedListAllocator::size_align(layout);
         let mut allocator = self.inner.lock();
-
+        // 调用了find_region，效率比较低
         if let Some((region, alloc_start)) = allocator.find_region(size, align) {
             let alloc_end = alloc_start + size;
             let excess_size = region.end_addr() - alloc_end;
             if excess_size > 0 {
+                // 把地址用掉一段，把剩下的一段内存再塞进去
                 allocator.add_free_region(alloc_end, excess_size);
             }
             alloc_start as *mut u8

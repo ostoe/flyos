@@ -43,7 +43,8 @@ impl BootInfoFrameAllocator {
 
 }
 
-/// 添加页表，而不是添加数据页
+/// 添加页表，而不是添加数据页，
+/// 因为是实现，所以会被分配内存时时自动调用
 unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
         let frame = self.usable_frames().nth(self.next);
@@ -68,11 +69,11 @@ unsafe fn active_level_4_page_table(physical_memory_offset: VirtAddr) -> &'stati
     let (level_4_page_frame, _) = Cr3::read();
     // 找到 l4 table物理起始地址
     let phys = level_4_page_frame.start_address(); // 条目里存的物理地址
-    // +偏移 --> 转换成虚拟地址？？？这里其实就是变量的地址，这里为啥是虚拟地址？
+    // 虚拟地址 = 物理地址 + 偏移！
     let virt = physical_memory_offset + phys.as_u64();
     // l4页表指针 返回l4 PageTable 指针
     let page_table_ptr: *mut PageTable = virt.as_mut_ptr();
-    &mut *page_table_ptr // unsafe
+    &mut *page_table_ptr // unsafe 这里返回的像当于是反过来计算页表在逻辑内存/虚拟内存地址
 }
 
 /// 为在PageTable中添加一条映射，目标数据页是VGA缓冲区[测试需要]

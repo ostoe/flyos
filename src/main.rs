@@ -10,7 +10,6 @@ use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::entry_point;
 use bootloader::BootInfo;
 use core::panic::PanicInfo;
-use flyos::allocator;
 use flyos::memory::BootInfoFrameAllocator;
 // use flyos::memory::translate_addr;
 use flyos::{print, println, serial_println, test_panic_handler};
@@ -38,19 +37,22 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
     let mut mapper = unsafe { flyos::memory::init(phys_mem_offset) };
 
     let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&_boot_info.memory_map) };
-
-    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed.");
+    // 初始化heap相关的东西
+    flyos::allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed.");
 
     //
     // let mut frame_allocator = flyos::memory::EmptyFrameAllocator;
     //new page
     // let page = Page::containing_address(VirtAddr::new(0));
+    // 这里的思路是，选一段虚拟地址,创建一个Page，这里只是逻辑上生成一个page
     let page = Page::containing_address(VirtAddr::new(0xdeadbeaf));
+    // 将上面的page映射到VGA的物理地址上
     flyos::memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
     let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
+    // 写入内容测试！
     unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
     // let l4_table = unsafe { active_level_4_page_table(phys_mem_offset) };
-    /* -------------test heap */
+    /* -------------test heap  ---------- */
     let heap_value = Box::new(41);
     println!("heap_value at {:p}", heap_value);
     let mut vec = Vec::new();

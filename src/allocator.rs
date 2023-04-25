@@ -11,10 +11,12 @@ use x86_64:: {
 };
 
 
-/// 两种不同的分配器
-pub mod bump;  // 只是简单的增加，效率高，不能重复利用
-pub mod linked_list; // 有回收，能重复利用，但是也会有碎片，效率低
-// 还有一种是固定大小的块，比如16 32 64 128大小的块分别使用不同的分配器：
+/// 几种不同的分配器
+///  - 只是简单的增加，效率高，不能重复利用，地址完全释放才回收==runtime不回收！
+pub mod bump; 
+///  - 有回收，能重复利用，但是也会有碎片，效率低
+pub mod linked_list; // 
+// 还有一种是固定大小的块，比如16 32 64 128大小的块分别使用不同的链表节点：
 pub mod fixed_size_block;
 
 // 可以增加合并策略，但是实现起来效率低，
@@ -41,6 +43,7 @@ unsafe impl GlobalAlloc for Dummy {
 
 /// 初始化heap大小100kib，由HEAP_SIZE定义
 /// 从虚拟地址分出来一块heap，多个Page，映射到物理地址
+/// 这里传入的第二个参数为4kib的桢页分配器，想象一下这个heap是套在frame分配器之上的，
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
@@ -63,6 +66,7 @@ pub fn init_heap(
         unsafe {mapper.map_to(page, frame, flags, frame_allocator)?.flush()};
     }
     unsafe {
+        // 不同的实现，初始化是不同的，
         super::ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
     }
 
@@ -88,7 +92,7 @@ impl<A> Locked<A> {
 }
 
 
-///  4kib对齐校验
+///  4kib靠左对齐
 pub fn align_up(addr: usize, align: usize) -> usize {
     let remainder = addr % align; 
     if remainder == 0 {

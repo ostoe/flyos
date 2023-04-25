@@ -15,12 +15,12 @@
 
 #![feature(alloc_layout_extra)]
 
-#![feature(const_in_array_repeat_expressions)]
+// #![feature(const_in_array_repeat_expressions)]
 
 extern crate alloc;
 
 use core::{panic::PanicInfo, alloc::Layout};
-use allocator::{bump::BumpAllocator, Locked, linked_list::LinkedListAllocator};
+use allocator::{bump::BumpAllocator, Locked, linked_list::LinkedListAllocator, fixed_size_block::FixedSizeBlockAllocator};
 use linked_list_allocator::LockedHeap;
 
 pub mod serial;
@@ -35,7 +35,8 @@ pub mod allocator;
 // static ALLOCATOR: allocator::Dummy = allocator::Dummy;
 // static ALLOCATOR: LockedHeap = LockedHeap::empty();
 // static ALLOCATOR: allocator::Locked<BumpAllocator>= allocator::Locked::new(BumpAllocator::new());
-static ALLOCATOR: Locked<LinkedListAllocator> =  Locked::new(LinkedListAllocator::new());
+// static ALLOCATOR: Locked<LinkedListAllocator> =  Locked::new(LinkedListAllocator::new());
+static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
 
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
