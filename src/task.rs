@@ -1,12 +1,12 @@
 use core:: {future, pin::Pin};
-use std::process::Output;
 use alloc::boxed::Box;
 
 
 pub mod simple_executor;
-
+pub mod keyboard;
+ 
 pub struct Task {
-    future: Pin<Box<dyn future<Output = ()>>>,
+    future: Pin<Box<dyn future::Future<Output = ()>>>,
 
 }
 
@@ -18,10 +18,15 @@ impl Task {
         }
     }
 
+    fn poll(&mut self, cx: &mut core::task::Context<'_>) -> core::task::Poll<()> {
+        self.future.as_mut().poll(cx)
+    }
+
 }
 
 impl future::Future for Task {
-    fn poll(&mut self, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {
-        self.future.as_mut().poll(cx)
+    type Output = ();
+    fn poll(self: Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> core::task::Poll<Self::Output> {
+        todo!();
     }
 }

@@ -9,15 +9,14 @@ extern crate alloc;
 use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::entry_point;
 use bootloader::BootInfo;
+use flyos::task::simple_executor::SimpleExecutor;
 use core::panic::PanicInfo;
 use flyos::memory::BootInfoFrameAllocator;
 // use flyos::memory::translate_addr;
 use flyos::{print, println, serial_println, test_panic_handler};
-use x86_64::structures::paging::FrameAllocator;
-use x86_64::structures::paging::Page;
-use x86_64::structures::paging::PageTable;
-use x86_64::structures::paging::Size4KiB;
-use x86_64::structures::paging::Translate;
+use x86_64::structures::paging::{FrameAllocator, Page, PageTable, Size4KiB, Translate};
+
+
 
 entry_point!(kernel_main);
 
@@ -89,6 +88,10 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
         };
         println!("{:?} -> {:?}", virt, phys);
     }
+
+    let mut executor = SimpleExecutor::new();
+    executor.spwan(flyos::task::Task::new(example_task()));
+    executor.run();
 
     // for (i, entry) in l4_table.iter().enumerate() {
     //     if !entry.is_unused() {
@@ -169,6 +172,14 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
     // executor.spawn(Task::new(keyboard::print_keypresses()));
     // executor.run();
     flyos::hlt_loop();
+}
+
+async fn async_number() -> u32 {
+    42
+}
+async fn example_task() {
+    let number = async_number().await;
+    println!("async number: {}", number);
 }
 
 #[cfg(not(test))]

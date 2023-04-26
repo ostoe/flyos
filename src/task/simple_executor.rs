@@ -1,4 +1,4 @@
-use core::task::{RawWaker, Waker, RawWakerVTable};
+use core::task::{RawWaker, Waker, RawWakerVTable, Context, Poll};
 
 use alloc::collections::VecDeque;
 
@@ -16,10 +16,29 @@ impl SimpleExecutor {
     pub fn spwan(&mut self, task: Task) {
         self.task_queue.push_back(task);
     }
+
+    pub fn run(&mut self) {
+        while let Some(mut task) = self.task_queue.pop_front() {
+            let waker = dymmy_worker();
+            let mut context = Context::from_waker(&waker);
+            match task.poll(&mut context) {
+                Poll::Pending => {
+                    self.task_queue.push_back(task);
+                },
+                Poll::Ready(()) => {}
+            }
+        }
+    }
 }
 
 fn dummy_raw_waker() -> RawWaker {
-    todo!()
+    fn no_op(_: *const ()) {}
+    fn clone(_: *const ()) -> RawWaker {
+        dummy_raw_waker()
+    }
+
+    let vtable = &RawWakerVTable::new(clone, no_op, no_op, no_op);
+    RawWaker::new(0 as *const (), vtable)
 }
 
 fn dymmy_worker() -> Waker {
