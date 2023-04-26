@@ -31,6 +31,9 @@ pub mod gdt;
 pub mod memory;
 pub mod allocator;
 
+// future async/await
+pub mod task;
+
 #[global_allocator]
 // static ALLOCATOR: allocator::Dummy = allocator::Dummy;
 // static ALLOCATOR: LockedHeap = LockedHeap::empty();
