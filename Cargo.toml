@@ -17,6 +17,11 @@ version = "0.3"
 default-features = false
 features = ["alloc"]
 
+[dependencies.futures-util]
+version = "0.3.28"
+default-features = false
+features = ["alloc"]
+
 [dependencies.conquer-once]
 version = "0.4.0"
 default-features = false

@@ -11,6 +11,7 @@ use spin;
 pub const PIC_1_OFFSET: u8 = 32;
 pub const PIC_2_OFFSET: u8 = PIC_1_OFFSET + 8; // 中断类型码范围为 32-47 
 
+// 串口驱动
 pub static PICS: spin::Mutex<ChainedPics> = spin::Mutex::new(
     unsafe {
         ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET)      
@@ -47,7 +48,7 @@ lazy_static! {
                 .set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX); // 设置中断向量表用于双重异常的指针。
         }
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
-        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
+        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler_withasync);
 
         idt
         
@@ -84,6 +85,18 @@ extern "x86-interrupt" fn timer_interrupt_handler(stack_frame: InterruptStackFra
     unsafe {
         // 通知中断结束函数 使用 命令 和 数据 端口向各控制器发送相应的 EOI 信号
         PICS.lock().notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
+    }
+}
+
+extern "x86-interrupt" fn keyboard_interrupt_handler_withasync(_stack_frame: InterruptStackFrame) {
+    use x86_64::instructions::port::Port;
+
+    let mut port = Port::new(0x60);
+    let scancode: u8 = unsafe { port.read() };
+    crate::task::keyboard::add_scancode(scancode);
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
     }
 }
 

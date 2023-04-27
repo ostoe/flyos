@@ -9,6 +9,7 @@ extern crate alloc;
 use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::entry_point;
 use bootloader::BootInfo;
+use flyos::task::keyboard;
 use flyos::task::simple_executor::SimpleExecutor;
 use core::panic::PanicInfo;
 use flyos::memory::BootInfoFrameAllocator;
@@ -91,6 +92,7 @@ fn kernel_main(_boot_info: &'static BootInfo) -> ! {
 
     let mut executor = SimpleExecutor::new();
     executor.spwan(flyos::task::Task::new(example_task()));
+    executor.spwan(flyos::task::Task::new(keyboard::print_keypress()));
     executor.run();
 
     // for (i, entry) in l4_table.iter().enumerate() {
