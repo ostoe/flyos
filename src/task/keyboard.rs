@@ -18,7 +18,7 @@ static WAKER: AtomicWaker = AtomicWaker::new();
 
 static SCAN_AUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 
-// 给中断回调的函数
+// 给中断调的函数
 
 pub(crate) fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCAN_AUEUE.try_get() {
@@ -72,15 +72,13 @@ impl ScancodeStream {
 impl Stream for ScancodeStream {
     type Item = u8;
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // fn poll_text(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
             let queue = SCAN_AUEUE.try_get().expect("not initialed.");
     
             // 快路径
             if let Some(scancode) = queue.pop() {
                 return Poll::Ready(Some(scancode));
             }
-    
-    
+
             let waker = cx.waker();
             WAKER.register(&waker);
             match queue.pop() {
