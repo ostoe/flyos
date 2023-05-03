@@ -22,6 +22,7 @@ impl <I> NumberExt for I where I: Number {
     }
 } 
 
+/// 用户视图 开始，即使只实现了trait属性，依然可以调用Ext方法，这就是扩展！
 struct INT32 (i32);
 
 impl  Number for INT32 {
