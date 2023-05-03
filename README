@@ -38,6 +38,17 @@ fn main() {
 }
 ```
 
+有趣的地方在于：
+如果NumberExt改成：
+```rust
+trait NumberExt: Number {
+    fn mul(&self) -> i32;
+}
+
+impl <I> NumberExt for I where I: Number {} 
+```
+所有具备Number特性的实例依然可以直接调用`a.mul()`!!!
+
 ref: https://rust-lang.github.io/rfcs/0445-extension-trait-conventions.html
 ```rust 
 // The core, object-safe trait
