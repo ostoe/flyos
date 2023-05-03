@@ -9,10 +9,8 @@ use conquer_once::spin::OnceCell;
 use crossbeam_queue::ArrayQueue;
 
 use crate::{println, print};
-use futures_util::{task::AtomicWaker, Stream};
-
-use futures_util::stream::StreamExt;
-
+use futures::{task::AtomicWaker, Stream, stream::StreamExt};
+// use futures_util::{task::AtomicWaker, Stream};
 
 static WAKER: AtomicWaker = AtomicWaker::new();
 

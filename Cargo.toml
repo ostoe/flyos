@@ -1,7 +1,7 @@
 [package]
 name = "flyos"
 version = "0.1.0"
-authors = ["Philipp Oppermann <dev@phil-opp.com>"]
+authors = ["Philipp Oppermann <dev@phil-opp.com>, fly <linhaifly@163.com>"]
 edition = "2021"
 
 [[test]]
@@ -12,21 +12,11 @@ harness = false
 name = "stack_overflow"
 harness = false
 
-[dependencies.crossbeam-queue]
-version = "0.3"
-default-features = false
-features = ["alloc"]
-
-[dependencies.futures-util]
-version = "0.3.28"
-default-features = false
-features = ["alloc"]
-
-[dependencies.conquer-once]
-version = "0.4.0"
-default-features = false
 
 [dependencies]
+crossbeam-queue = {version = "0.3", default-features = false, features = ["alloc"]}
+conquer-once = {version = "0.4.0", default-features = false}
+futures = {version = "0.3.28", default-features = false, features = ["alloc"]}
 
 bootloader = { version = "0.9.8", features = ["map_physical_memory"]}
 volatile = "0.2.6"
