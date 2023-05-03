@@ -1,0 +1,59 @@
+
+
+### 扩展trait
+
+eg.
+
+```rust 
+trait Number {
+    fn add(&self) -> i32;
+}
+
+trait NumberExt: Number {
+    fn mul(&self) -> i32;
+    fn sub(&self) -> i32 {
+            return 111;
+    }
+}
+
+impl <I> NumberExt for I where I: Number {
+    fn mul(&self) -> i32 {
+            return 222;
+    }
+} 
+
+struct INT32 (i32);
+
+impl  Number for INT32 {
+    fn add(&self) -> i32 {
+        return 10;
+    }
+}
+
+fn main() {
+    let a = INT32(3) ;
+    // 奇怪的是即使只扩展了一个mul函数，但缺省添加了sub()函数
+    println!("{} {} {}", a.add(), a.mul(), a.sub());
+}
+```
+
+ref: https://rust-lang.github.io/rfcs/0445-extension-trait-conventions.html
+```rust 
+// The core, object-safe trait
+trait Iterator<A> {
+    fn next(&mut self) -> Option<A>;
+}
+
+// The extension trait offering object-unsafe methods
+trait IteratorExt<A>: Iterator<A> {
+    fn chain<U: Iterator<A>>(self, other: U) -> Chain<Self, U> { ... }
+    fn zip<B, U: Iterator<B>>(self, other: U) -> Zip<Self, U> { ... }
+    fn map<B>(self, f: |A| -> B) -> Map<'r, A, B, Self> { ... }
+    ...
+}
+
+// A blanket impl
+impl<A, I> IteratorExt<A> for I where I: Iterator<A> {
+    ...
+}
+```
